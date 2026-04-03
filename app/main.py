@@ -1,13 +1,18 @@
 # API作成
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine
+from jose import jwt
+from app.auth import hash_password, verify_password, create_access_token
 from app import models
 
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+SECRET_KEY = "secret"
+ALGORITHM = "HS256"
 
 
 # DBセッション取得
@@ -24,10 +29,55 @@ def add_tax(price: int):
     return int(price * 1.1)
 
 
+# 認証系
+@app.post("/register")
+def register(email: str, password: str, is_admin: bool = False, db: Session = Depends(get_db)):
+    user = models.User(
+        email=email, 
+        password=hash_password(password),
+        is_admin=is_admin
+    )
+    db.add(user)
+    db.commit()
+    return {"message": "登録完了"}
+
+
+@app.post("/login")
+def login(email: str, password: str, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    
+    if not user or not verify_password(password, user.password):
+        raise HTTPException(status_code=401, detail="ログイン失敗")
+    
+    token = create_access_token({"sub": str(user.id)})
+    return {"access_token": token}
+
+
+# ユーザー取得
+def get_current_user(token: str, db: Session):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = int(payload.get("sub"))
+    except:
+        raise HTTPException(status_code=401, detail="認証エラー")
+    
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    return user
+
+
+def get_current_admin(token: str, db: Session):
+    user = get_current_admin(token, db)
+    
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="管理者のみ操作可能")
+    return user
+
+
 ## 店側     
-# 商品登録
-@app.post("/products")
-def create_product(name: str, price: int, stock: int, db: Session = Depends(get_db)):
+# 商品登録(管理者)
+@app.post("/admin/products")
+def create_product(name: str, price: int, stock: int, token: str, db: Session = Depends(get_db)):
+    get_current_admin(token, db)
     product = models.Product(name=name, price=price, stock=stock)
     db.add(product)
     db.commit()
@@ -60,8 +110,9 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
 
 
 # 商品削除
-@app.delete("/products/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
+@app.delete("/admin/products/{product_id}")
+def delete_product(product_id: int, token: str, db: Session = Depends(get_db)):
+    get_current_admin(token, db)
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     db.delete(product)
     db.commit()
@@ -71,19 +122,20 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 ## 顧客側
 # 購入
 @app.post("/buy")
-def buy_product(product_id: int, quantity: int, db: Session = Depends(get_db)):
+def buy_product(product_id: int, quantity: int, token: str, db: Session = Depends(get_db)):
+    user = get_current_user(token, db)
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     
     if not product:
-        return {"error": "商品が存在しません"}
+        raise HTTPException(status_code=404, detail="商品なし")
     if product.stock < quantity:
-        return {"error": "在庫不足"}
+        raise HTTPException(status_code=400, detail="在庫不足")
     
     # 在庫減少
     product.stock -= quantity
     
     # 注文作成
-    order = models.Order()
+    order = models.Order(user_id=user.id)
     db.add(order)
     db.commit()
     db.refresh(order)
@@ -100,7 +152,7 @@ def buy_product(product_id: int, quantity: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {
-        "message": "注文完了",
+        "message": "購入完了",
         "order_id": order.id,
         "total_price": add_tax(product.price * quantity)
     }
