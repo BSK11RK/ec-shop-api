@@ -168,3 +168,43 @@ def buy_product(
         "order_id": order.id,
         "total_price": add_tax(product.price * quantity)
     }
+    
+    
+# 注文履歴
+@app.get("/orders")
+def get_orders(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
+    orders = db.query(models.Order).filter(models.Order.user_id == user.id).all()
+    
+    result = []
+    
+    for order in orders:
+        items = db.query(models.OrderItem).filter(models.OrderItem.order_id == order.id).all()
+        
+        order_items = []
+        total = 0
+        
+        for item in items:
+            product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+            
+            subtotal = item.price * item.quantity
+            total += subtotal
+            
+            order_items.append({
+                "product_name": product.name,
+                "quantity": item.quantity,
+                "price": item.price,
+                "subtotal": subtotal,
+                "subtotal_with_tax": add_tax(subtotal)
+            })
+            
+        result.append({
+            "order_id": order.id, 
+            "created_at": order.created_at,
+            "total_price": total,
+            "total_price_with_tax": add_tax(total),
+            "items": order_items
+        })
+    return result

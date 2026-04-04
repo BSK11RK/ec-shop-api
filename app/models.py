@@ -1,6 +1,7 @@
 # モデル
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from app.database import Base
 
 
@@ -14,7 +15,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
 
 
-# 商品テーブル
+# 商品
 class Product(Base):
     __tablename__ = "products"
     
@@ -24,15 +25,16 @@ class Product(Base):
     stock = Column(Integer)
     
 
-# 注文テーブル   
+# 注文  
 class Order(Base):
     __tablename__ = "orders"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
     
 
-# 注文明細（何を何個買ったか）   
+# 注文明細   
 class OrderItem(Base):
     __tablename__ = "order_items"
     
