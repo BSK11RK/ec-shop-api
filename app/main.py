@@ -1,9 +1,10 @@
 # API作成
+import os
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from app.database import SessionLocal, engine
 from jose import jwt
+from app.database import SessionLocal, engine
 from app.auth import hash_password, verify_password, create_access_token
 from app import models
 
@@ -12,10 +13,10 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-SECRET_KEY = "secret"
-ALGORITHM = "HS256"
+SECRET_KEY = os.getenv("SECRET_KEY", "secret")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 
 # DBセッション取得

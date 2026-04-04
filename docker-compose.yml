@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: ec-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+    env_file:
+      - .env

@@ -8,5 +8,11 @@ venv/
 # DB
 data/*.db
 
+# env
+.env
+
+# Docker
+*.log
+
 # OS
 .DS_Store
