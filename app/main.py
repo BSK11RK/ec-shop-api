@@ -1,5 +1,6 @@
 # API作成
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine
 from jose import jwt
@@ -13,6 +14,8 @@ app = FastAPI()
 
 SECRET_KEY = "secret"
 ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
 # DBセッション取得
@@ -43,18 +46,18 @@ def register(email: str, password: str, is_admin: bool = False, db: Session = De
 
 
 @app.post("/login")
-def login(email: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == email).first()
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
     
-    if not user or not verify_password(password, user.password):
+    if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=401, detail="ログイン失敗")
     
     token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token}
+    return {"access_token": token, "token_type": "bearer"}
 
 
 # ユーザー取得
-def get_current_user(token: str, db: Session):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = int(payload.get("sub"))
@@ -65,8 +68,8 @@ def get_current_user(token: str, db: Session):
     return user
 
 
-def get_current_admin(token: str, db: Session):
-    user = get_current_admin(token, db)
+# 管理者
+def get_current_admin(user: models.User = Depends(get_current_user)):
     
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="管理者のみ操作可能")
@@ -76,8 +79,13 @@ def get_current_admin(token: str, db: Session):
 ## 店側     
 # 商品登録(管理者)
 @app.post("/admin/products")
-def create_product(name: str, price: int, stock: int, token: str, db: Session = Depends(get_db)):
-    get_current_admin(token, db)
+def create_product(
+    name: str, 
+    price: int, 
+    stock: int, 
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
     product = models.Product(name=name, price=price, stock=stock)
     db.add(product)
     db.commit()
@@ -122,8 +130,12 @@ def delete_product(product_id: int, token: str, db: Session = Depends(get_db)):
 ## 顧客側
 # 購入
 @app.post("/buy")
-def buy_product(product_id: int, quantity: int, token: str, db: Session = Depends(get_db)):
-    user = get_current_user(token, db)
+def buy_product(
+    product_id: int, 
+    quantity: int, 
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user)
+):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     
     if not product:
