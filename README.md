@@ -70,6 +70,10 @@ app/
  │   ├─ auth.py
  │   ├─ products.py
  │   ├─ orders.py
+ ├─ tests/
+ │   ├─ conftest.py
+ │   ├─ test_auth.py
+ │   ├─ test_products.py
  ├─ data/
  ├─ Dockerfile
  ├─ docker-compose.yml
@@ -106,6 +110,15 @@ http://localhost:8000/docs
 FastAPIの自動生成ドキュメントにより、APIの動作確認が可能です。
 
 ![Swagger UI](images/swagger_ec.png)
+
+---
+
+## 🧪 テスト
+
+pytestを使用してAPIの動作確認を行っています。
+
+```bash
+pytest
 
 ---
 
