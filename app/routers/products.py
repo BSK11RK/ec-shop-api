@@ -15,16 +15,39 @@ def add_tax(price: int):
 
       
 ## 店側     
+# カテゴリ作成（管理者）
+@router.post("/admin/categories")
+def create_category(
+    name: str,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    existing = db.query(models.Category).filter(models.Category.name == name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="カテゴリは既に存在します")
+    
+    category = models.Category(name=name)
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
 # 商品登録(管理者)
 @router.post("/admin/products")
 def create_product(
     name: str,
     price: int,
     stock: int,
+    category_id: int,
     db: Session = Depends(get_db),
     admin: models.User = Depends(get_current_admin)
 ):
-    product = models.Product(name=name, price=price, stock=stock)
+    category = db.query(models.Category).filter(models.Category.id == category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="カテゴリが存在しません")
+    
+    product = models.Product(name=name, price=price, stock=stock, category_id=category_id)
     db.add(product)
     db.commit()
     db.refresh(product)
@@ -62,7 +85,8 @@ def get_products(
                 "name": p.name,
                 "price": p.price,
                 "price_with_tax": add_tax(p.price),
-                "stock": p.stock
+                "stock": p.stock,
+                "category": p.category.name if p.category else None
             }
             for p in products
         ]
@@ -82,7 +106,8 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
         "name": product.name,
         "price": product.price,
         "price_with_tax": add_tax(product.price),
-        "stock": product.stock
+        "stock": product.stock,
+        "category": product.category.name if product.category else None
     }
 
 
@@ -93,6 +118,7 @@ def update_product(
     name: str = None,
     price: int = None,
     stock: int = None,
+    category_id: int = None,
     db: Session = Depends(get_db),
     admmin: models.User = Depends(get_current_admin)
 ):
@@ -100,6 +126,12 @@ def update_product(
     
     if not product:
         raise HTTPException(status_code=404, detail="商品が存在しません")
+    
+    if category_id:
+        category = db.query(models.Category).filter(models.Category.id == category_id).first()
+        if not category:
+            raise HTTPException(status_code=404, detail="カテゴリが存在しません")
+        product.category_id = category_id
     
     # 更新
     if name is not None:

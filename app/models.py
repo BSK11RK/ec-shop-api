@@ -13,6 +13,15 @@ class User(Base):
     email = Column(String, unique=True)
     password = Column(String)
     is_admin = Column(Boolean, default=False)
+    
+    
+# カテゴリ
+class Category(Base):
+    __tablename__ = "categories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)
+    products = relationship("Product", back_populates="category")
 
 
 # 商品
@@ -23,6 +32,8 @@ class Product(Base):
     name = Column(String)
     price = Column(Integer)
     stock = Column(Integer)
+    category_id = Column(Integer, ForeignKey("categories.id"))
+    category = relationship("Category", back_populates="products")
     
 
 # 注文  
