@@ -130,7 +130,7 @@ POST /admin/orders/{order_id}/status
 
 FastAPIの自動生成ドキュメントにより、APIの動作確認が可能です。
 
-![Swagger UI](images/swagger_ec.png(2))
+![Swagger UI](images/swagger_ec.png.jpeg)
 
 ---
 
