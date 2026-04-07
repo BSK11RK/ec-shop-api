@@ -8,7 +8,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.core.deps import get_db
 
 
-router = APIRouter()
+router = APIRouter(tags=["Auth"])
         
         
 @router.post("/register")

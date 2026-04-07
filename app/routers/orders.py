@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 import app.models as models
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_db, get_current_user, get_current_admin
 
 
-router = APIRouter()
+router = APIRouter(tags=["Orders"])
 
         
 # 消費税
@@ -15,7 +15,7 @@ def add_tax(price: int):
         
 ## 顧客側
 # 購入
-@router.post("/buy")
+@router.post("/orders")
 def buy_product(
     product_id: int,
     quantity: int,
@@ -88,6 +88,7 @@ def get_orders(
             
         result.append({
             "order_id": order.id,
+            "status": order.status,
             "created_at": order.created_at,
             "total_price": total,
             "total_price_with_tax": add_tax(total),
@@ -95,3 +96,26 @@ def get_orders(
         })
 
     return result
+
+
+# 注文ステータス更新（管理者）
+@router.post("/admin/orders/{order_id}/status", tags=["Admin"])
+def update_order_status(
+    order_id: int,
+    status: str,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin)
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が存在しません")
+    
+    order.status = status
+    db.commit()
+    db.refresh(order)
+    return {
+        "message": "ステータス更新完了",
+        "order_id": order.id,
+        "status": order.status
+    }
