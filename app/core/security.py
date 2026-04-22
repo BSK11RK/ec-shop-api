@@ -1,3 +1,4 @@
+# パスワード・JWT処理
 import os
 from jose import jwt
 from passlib.context import CryptContext

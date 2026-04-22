@@ -1,3 +1,4 @@
+# 認証チェック
 import os
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
